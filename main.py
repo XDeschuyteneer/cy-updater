@@ -9,8 +9,10 @@ import requests
 import wget
 import os
 import logging
+import re
 
 do_not_update_file = "do_not_update.txt"
+version_file = "version.txt"
 
 devices = {}
 
@@ -23,7 +25,6 @@ async def get_os_version(ip):
     url = f"ws://{ip}/release"
     async with websockets.connect(url) as websocket:
         message = await websocket.recv()
-        # parse message as json
         js = json.loads(message)
         return js['os_version'].split(' ')[1]
 
@@ -40,7 +41,24 @@ def get_latest_version():
     url = "https://s3.eu-west-3.amazonaws.com/cy-binaries.cyanview.com/os/releases.json"
     response = urlopen(url)
     data_json = json.loads(response.read())
-    return data_json['OS']['latest']
+    v_latest = data_json['OS']['latest']
+    v_stable = data_json['OS']['stable']
+    version = v_latest
+    try:
+        with open(version_file) as f:
+            v_type = f.readline().strip()
+            match v_type:
+                case "latest":
+                    version = v_latest
+                case "stable":
+                    version = v_stable
+                case other if re.match(r"\d+\.\d+\.\d+\S", other):
+                    version = v_type
+                case _:
+                    version = v_latest
+    except Exception as e:
+        pass
+    return version
 
 
 def do_not_update(serial):

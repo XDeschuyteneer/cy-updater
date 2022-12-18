@@ -21,12 +21,18 @@ logging.basicConfig(format=FORMAT, encoding='utf-8', level=logging.INFO)
 logger = logging.getLogger('Cyanview Updater')
 
 
-async def get_os_version(ip):
-    url = f"ws://{ip}/release"
-    async with websockets.connect(url) as websocket:
-        message = await websocket.recv()
-        js = json.loads(message)
-        return js['os_version'].split(' ')[1]
+def get_os_version(ip):
+    try:
+        async def get_os_version_from_ws(ip):
+            url = f"ws://{ip}/release"
+            async with websockets.connect(url) as websocket:
+                message = await websocket.recv()
+                js = json.loads(message)
+                return js['os_version'].split(' ')[1]
+        return asyncio.run(get_os_version_from_ws(ip))
+    except Exception as e:
+        logger.exception(e)
+        return "0.0.0"
 
 
 def get_hw_version(serial):
@@ -59,6 +65,15 @@ def get_latest_version():
     except Exception as e:
         pass
     return version
+
+
+def get_device_info(socket):
+    data, address = socket.recvfrom(4096)
+    serial = data.decode('utf-8').split(' ')[1]
+    ip, _ = address
+    os_version = get_os_version(ip)
+    logger.info(
+        f"serial : {serial}, ip: {ip}, os_version: {os_version}")
 
 
 def do_not_update(serial):
@@ -123,12 +138,7 @@ def discovery(port=3838):
         while True:
             serial = ""
             try:
-                data, address = sock.recvfrom(4096)
-                serial = data.decode('utf-8').split(' ')[1]
-                ip, _ = address
-                os_version = asyncio.run(get_os_version(ip))
-                logger.info(
-                    f"serial : {serial}, ip: {ip}, os_version: {os_version}")
+                serial, ip, os_version = get_device_info(sock)
                 thread = Thread(
                     target=update,
                     args=(serial, ip, os_version))

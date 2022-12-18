@@ -36,11 +36,25 @@ def get_os_version(ip):
 
 
 def get_hw_version(serial):
-    sparts = serial.split('-')
-    machine = f"{sparts[0]}-{sparts[1]}"
-    batch = sparts[2]
-    hw = machine if machine == "cy-rcp" else f"{machine}-rev2"
-    return hw
+    prefix, machine, batch, sid = serial.split('-')
+    if prefix != "cy":
+        raise Exception(f"Unknown prefix {prefix}")
+    match machine:
+        case "rcp":
+            return "cy-rcp"
+        case "nio":
+            if batch == "22" and int(sid) <= 50:
+                return "cy-nio"
+            else:
+                return "cy-nio-rev2"
+        case "rio":
+            if batch == "15" and int(sid) <= 50:
+                return "cy-rio"
+            else:
+                return "cy-rio-rev2"
+        case "vp4":
+            return "cy-vp4"
+    raise Exception(f"Unknown machine {machine}")
 
 
 def get_latest_version():

@@ -10,6 +10,7 @@ import wget
 import os
 import logging
 import re
+import click
 
 do_not_update_file = "do_not_update.txt"
 version_file = "version.txt"
@@ -17,7 +18,6 @@ version_file = "version.txt"
 devices = {}
 
 FORMAT = '%(asctime)s %(message)s'
-logging.basicConfig(format=FORMAT, encoding='utf-8', level=logging.INFO)
 logger = logging.getLogger('Cyanview Updater')
 
 
@@ -171,7 +171,13 @@ def discovery(port=3838):
         sock.close()
 
 
-def main():
+@click.command()
+@click.option('--debug', is_flag=True, default=False, help='Enable debug mode')
+def main(debug):
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+    else:
+        logging.basicConfig(level=logging.INFO, format=FORMAT)
     discovery()
 
 

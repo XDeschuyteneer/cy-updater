@@ -31,7 +31,7 @@ def get_os_version(ip):
                 return js['os_version'].split(' ')[1]
         return asyncio.run(get_os_version_from_ws(ip))
     except Exception as e:
-        logger.exception(e)
+        # logger.exception(e)
         return "0.0.0"
 
 
@@ -67,13 +67,17 @@ def get_latest_version():
     return version
 
 
+def is_handled(serial):
+    return "cy-" in serial
+
+
 def get_device_info(socket):
-    data, address = socket.recvfrom(4096)
+    data, (ip, _) = socket.recvfrom(4096)
     serial = data.decode('utf-8').split(' ')[1]
-    ip, _ = address
-    os_version = get_os_version(ip)
-    logger.info(
-        f"serial : {serial}, ip: {ip}, os_version: {os_version}")
+    if is_handled(serial):
+        os_version = get_os_version(ip)
+        logger.info(
+            f"serial : {serial}, ip: {ip}, os_version: {os_version}")
 
 
 def do_not_update(serial):

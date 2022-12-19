@@ -55,6 +55,14 @@ def get_hw_version(serial):
             return "cy-vp4"
 
 
+def is_handled(serial):
+    try:
+        hw = get_hw_version(serial)
+        return True
+    except Exception as e:
+        return False
+
+
 def get_latest_version():
     url = "https://s3.eu-west-3.amazonaws.com/cy-binaries.cyanview.com/os/releases.json"
     response = urlopen(url)
@@ -109,7 +117,8 @@ def download_swu(serial, version):
 
 def upload_swu(serial, ip, version):
     logger.debug(f"uploading swu: {serial}")
-    hw = get_hw_version(serial)
+    if not is_handled(serial):
+        return False
     filename = f"swu/{hw}-cyanos-{version}.swu"
     url = f'http://{ip}:8080/upload'
     files = {'file': open(filename, 'rb')}
@@ -135,12 +144,16 @@ def update(serial, ip, version):
     devices[serial]["lock"].release()
 
 
-def update_device(serial, ip, os_version):
-    hw = get_hw_version(serial)
-
+def create_lock(serial):
     if serial not in devices:
         devices[serial] = {}
         devices[serial]["lock"] = Lock()
+
+
+def update_device_info(serial, ip, os_version):
+    if not is_handled(serial):
+        return False
+    create_lock(serial)
     devices[serial]["last_seen"] = datetime.datetime.now()
     devices[serial]["ip"] = ip
     devices[serial]["os_version"] = os_version
@@ -161,15 +174,15 @@ def discovery(port=3838):
         server_address = ('0.0.0.0', port)
         sock.bind(server_address)
         while True:
-            serial = ""
             try:
                 serial, ip, os_version = get_device_info(sock)
-                update_device(serial, ip, os_version)
-                print_devices()
-                thread = Thread(
-                    target=update,
-                    args=(serial, ip, os_version))
-                thread.start()
+                if is_handled(serial):
+                    update_device_info(serial, ip, os_version)
+                    print_devices()
+                    thread = Thread(
+                        target=update,
+                        args=(serial, ip, os_version))
+                    thread.start()
             except ValueError as e:
                 pass
             except Exception as e:

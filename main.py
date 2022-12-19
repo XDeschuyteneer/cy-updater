@@ -161,10 +161,14 @@ def update_device_info(serial, ip, os_version):
 
 def print_devices():
     logger.info("-"*20)
+    latest_version = get_latest_version()
     for serial, device in devices.items():
         now = datetime.datetime.now()
         if (now - device["last_seen"]).seconds < 60:
-            txt = f"{serial} - {device['ip']} - {device['os_version']}"
+            if device["os_version"] != latest_version:
+                txt = f"{serial} | {device['os_version']} => UPDATING"
+            else:
+                txt = f"{serial} | {device['os_version']} => OK"
             logger.info(txt)
 
 

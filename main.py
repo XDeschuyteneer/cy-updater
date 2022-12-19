@@ -96,18 +96,15 @@ def do_not_update(serial):
 
 
 def download_swu(serial, version):
-    try:
-        hw = get_hw_version(serial)
-        print(f"downloading swu: {hw} - {version}")
-        url = f"https://s3.eu-west-3.amazonaws.com/cy-binaries.cyanview.com/{version}/{hw}-cyanos-{version}.swu"
-        filename = f"swu/{hw}-cyanos-{version}.swu"
-        dir = os.path.dirname(filename)
-        if not os.path.exists(dir):
-            os.makedirs(dir)
-        if not os.path.exists(filename):
-            wget.download(url, filename)
-    except Exception as e:
-        pass
+    hw = get_hw_version(serial)
+    logger.debug(f"downloading swu: {hw} - {version}")
+    url = f"https://s3.eu-west-3.amazonaws.com/cy-binaries.cyanview.com/{version}/{hw}-cyanos-{version}.swu"
+    filename = f"swu/{hw}-cyanos-{version}.swu"
+    dir = os.path.dirname(filename)
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    if not os.path.exists(filename):
+        wget.download(url, filename)
 
 
 def upload_swu(serial, ip, version):

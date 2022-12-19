@@ -77,10 +77,6 @@ def get_latest_version():
         return v_latest
 
 
-def is_handled(serial):
-    return "cy-" in serial
-
-
 def get_device_info(socket):
     data, (ip, _) = socket.recvfrom(4096)
     serial = data.decode('utf-8').split(' ')[1]

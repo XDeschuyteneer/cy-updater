@@ -151,7 +151,8 @@ def print_devices():
     for serial, device in devices.items():
         now = datetime.datetime.now()
         if (now - device["last_seen"]).seconds < 60:
-            logger.info(f"{serial} - {device['ip']} - {device['os_version']}")
+            txt = f"{serial} - {device['ip']} - {device['os_version']}"
+            logger.info(txt)
 
 
 def discovery(port=3838):

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cy-Updater</title>
+    <meta http-equiv="refresh" content="10">
+    <style>
+        table,
+        th,
+        td {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Device status - {{latest_version}}</h1>
+    <table>
+        <tr>
+            <th>S/N</th>
+            <th>Version</th>
+            <th>Status</th>
+        </tr>
+        {% for serial, device in devices.items() %}
+        {% if (now - device["last_seen"]).seconds < 60 %} <!-- 1 minute -->
+            <tr>
+                <td>{{serial}}</td>
+                <td>{{device['os_version']}}</td>
+                <td>{{"Updating" if device["os_version"] != latest_version else "OK"}}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+    </table>
+
+</html>

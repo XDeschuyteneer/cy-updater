@@ -12,9 +12,13 @@ import logging
 import re
 import click
 import datetime
+import flask
+import flask.cli
 
 do_not_update_file = "do_not_update.txt"
 version_file = "version.txt"
+
+app = flask.Flask(__name__)
 
 devices = {}
 
@@ -172,6 +176,26 @@ def print_devices():
             logger.info(txt)
 
 
+@app.after_request
+def add_header(r):
+    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
+    r.headers["Pragma"] = "no-cache"
+    r.headers["Expires"] = "0"
+    return r
+
+
+@app.route('/')
+def index():
+    global devices
+    latest_version = get_latest_version()
+    return flask.render_template(
+        'index.html',
+        devices=devices,
+        latest_version=latest_version,
+        now=datetime.datetime.now(),
+    )
+
+
 def discovery(port=3838):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -201,13 +225,23 @@ def discovery(port=3838):
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False, help='Enable debug mode')
-def main(debug):
-    for l in ("asyncio", "websockets.client"):
+@click.option('--port', default=8080, help='Set web server port')
+def main(debug, port):
+    flask.cli.show_server_banner = lambda *args: None
+    app.logger.disabled = True
+    for l in ("asyncio", "websockets.client", "werkzeug"):
         logging.getLogger(l).setLevel(logging.ERROR)
+        logging.getLogger(l).disabled = True
     if debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+    logger.info(f"Starting web server on port {port}")
+    logger.info(f"Check status at http://localhost:{port}")
+    t = Thread(target=app.run, kwargs={
+        'host': '0.0.0.0', 'port': port, 'threaded': True})
+    t.daemon = True
+    t.start()
     discovery()
 
 

@@ -123,6 +123,7 @@ def upload_swu(serial, ip, version):
     logger.debug(f"uploading swu: {serial}")
     if not is_handled(serial):
         return False
+    hw = get_hw_version(serial)
     filename = f"swu/{hw}-cyanos-{version}.swu"
     url = f'http://{ip}:8080/upload'
     files = {'file': open(filename, 'rb')}

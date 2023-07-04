@@ -29,18 +29,15 @@ logger = logging.getLogger('cy-updater')
 
 
 def get_os_version(ip):
-    try:
-        async def get_os_version_from_ws(ip):
-            url = f"ws://{ip}/release"
-            async with websockets.connect(url) as websocket:
-                message = await websocket.recv()
-                js = json.loads(message)
-                return js['os_version'].split(' ')[1]
-        return asyncio.run(get_os_version_from_ws(ip))
-    except Exception as e:
-        # logger.exception(e)
-        return "0.0.0"
-
+    cmd = f"curl http://{ip}:8080/version.html"
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True)
+    stdout, stderr = process.communicate()
+    version = stdout.decode("utf-8").split("</br>")[7].split(" ")[5]
+    return version
 
 def get_hw_version(serial):
     _, machine, batch, sid = serial.split('-')

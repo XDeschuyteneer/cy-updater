@@ -14,6 +14,8 @@ import click
 import datetime
 import flask
 import flask.cli
+import subprocess
+import shlex
 
 do_not_update_file = "do_not_update.txt"
 version_file = "version.txt"
@@ -118,6 +120,14 @@ def download_swu(serial, version):
     if not os.path.exists(filename):
         wget.download(url, filename)
 
+def upload_file(filename, url, field):
+    cmd = f"curl -F '{field}=@{filename}' '{url}'"
+    process = subprocess.Popen(
+        shlex.split(cmd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return stdout, stderr
 
 def upload_swu(serial, ip, version):
     logger.debug(f"uploading swu: {serial}")
@@ -126,9 +136,7 @@ def upload_swu(serial, ip, version):
     hw = get_hw_version(serial)
     filename = f"swu/{hw}-cyanos-{version}.swu"
     url = f'http://{ip}:8080/upload'
-    files = {'file': open(filename, 'rb')}
-    return requests.post(url, files=files).status_code == 200
-
+    upload_file(filename, url, 'file')
 
 def update(serial, ip, version):
     if do_not_update(serial):

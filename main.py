@@ -5,7 +5,6 @@ import websockets
 import json
 from threading import Lock, Thread
 from urllib.request import urlopen
-import requests
 import wget
 import os
 import logging
@@ -29,15 +28,18 @@ logger = logging.getLogger('cy-updater')
 
 
 def get_os_version(ip):
-    cmd = f"curl http://{ip}:8080/version.html"
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=True)
-    stdout, stderr = process.communicate()
-    version = stdout.decode("utf-8").split("</br>")[7].split(" ")[5]
-    return version
+    try:
+        cmd = f"curl http://{ip}:8080/version.html"
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True)
+        stdout, stderr = process.communicate()
+        version = stdout.decode("utf-8").split("</br>")[7].split(" ")[5]
+        return version
+    except Exception as e:
+        return None
 
 def get_hw_version(serial):
     _, machine, batch, sid = serial.split('-')
@@ -105,7 +107,6 @@ def do_not_update(serial):
         logger.exception(e)
     return False
 
-
 def download_swu(serial, version):
     hw = get_hw_version(serial)
     logger.debug(f"downloading swu: {hw} - {version}")
@@ -124,12 +125,13 @@ def upload_file(filename, url, field):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
+    logger.debug(f"curl upload rc: {process.returncode}")
     return stdout, stderr
 
 def upload_swu(serial, ip, version):
-    logger.debug(f"uploading swu: {serial}")
     if not is_handled(serial):
         return False
+    logger.debug(f"uploading swu: {serial}")
     hw = get_hw_version(serial)
     filename = f"swu/{hw}-cyanos-{version}.swu"
     url = f'http://{ip}:8080/upload'
@@ -141,33 +143,32 @@ def update(serial, ip, version):
         return
     new_version = get_latest_version()
     logger.debug(f"updating {serial} to {new_version}")
-
-    devices[serial]["lock"].acquire()
-
-    if new_version != version:
+    if True:#new_version != version:
+        devices[serial]["lock"].acquire()
         logger.debug(f"Updating {serial} from {version} to {new_version}")
         download_swu(serial, new_version)
-        upload_swu(serial, ip, new_version)
+        try:
+            upload_swu(serial, ip, new_version)
+        except:
+            logger.debug(f"cannot connect to {serial}")
+        devices[serial]["lock"].release()
     else:
         logger.debug(f"{serial} is up to date")
-
-    devices[serial]["lock"].release()
-
-
-def create_lock(serial):
-    if serial not in devices:
-        devices[serial] = {}
-        devices[serial]["lock"] = Lock()
-
 
 def update_device_info(serial, ip, os_version):
     if not is_handled(serial):
         return False
-    create_lock(serial)
+    if serial not in devices:
+        devices[serial] = {}
+        devices[serial]["lock"] = Lock()
     devices[serial]["last_seen"] = datetime.datetime.now()
     devices[serial]["ip"] = ip
-    devices[serial]["os_version"] = os_version
-
+    if os_version:
+        devices[serial]["os_version"] = os_version
+        devices[serial]["status"] = "updating" if devices[serial]["lock"].locked() else "OK"
+    else:
+        devices[serial]["os_version"] = "---"
+        devices[serial]["status"] = "offline"
 
 def print_devices():
     logger.info("-"*20)
@@ -175,10 +176,7 @@ def print_devices():
     for serial, device in devices.items():
         now = datetime.datetime.now()
         if (now - device["last_seen"]).seconds < 60:
-            if device["os_version"] != latest_version:
-                txt = f"{serial} | {device['os_version']} => UPDATING"
-            else:
-                txt = f"{serial} | {device['os_version']} => OK"
+            txt = f"{serial} | {device['os_version']} => {device['status']}"
             logger.info(txt)
 
 

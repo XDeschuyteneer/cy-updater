@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import socket
-import asyncio
-import websockets
 import json
 from threading import Lock, Thread
 from urllib.request import urlopen
@@ -128,6 +126,17 @@ def upload_file(filename, url, field):
     logger.debug(f"curl upload rc: {process.returncode}")
     return stdout, stderr
 
+
+def upgrade(filename, ip):
+    cmd = f"./update.sh -f '{filename}' -i '{ip}'"
+    process = subprocess.Popen(
+        shlex.split(cmd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    logger.debug(f"upgrade : {process.returncode}")
+    return stdout, stderr
+
 def upload_swu(serial, ip, version):
     if not is_handled(serial):
         return False
@@ -135,15 +144,19 @@ def upload_swu(serial, ip, version):
     hw = get_hw_version(serial)
     filename = f"swu/{hw}-cyanos-{version}.swu"
     url = f'http://{ip}:8080/upload'
-    upload_file(filename, url, 'file')
+    # upload_file(filename, url, 'file')
+    upgrade(filename, ip)
 
 def update(serial, ip, version):
     if do_not_update(serial):
         logger.debug(f"skipping {serial}")
         return
+    if is_busy(serial):
+        logger.debug(f"{serial} is busy")
+        return
     new_version = get_latest_version()
-    logger.debug(f"updating {serial} to {new_version}")
-    if True:#new_version != version:
+    if version and new_version != version:
+        logger.debug(f"updating {serial} to {new_version}")
         devices[serial]["lock"].acquire()
         logger.debug(f"Updating {serial} from {version} to {new_version}")
         download_swu(serial, new_version)
@@ -155,6 +168,9 @@ def update(serial, ip, version):
     else:
         logger.debug(f"{serial} is up to date")
 
+def is_busy(serial):
+    return devices[serial]["lock"].locked()
+
 def update_device_info(serial, ip, os_version):
     if not is_handled(serial):
         return False
@@ -165,7 +181,7 @@ def update_device_info(serial, ip, os_version):
     devices[serial]["ip"] = ip
     if os_version:
         devices[serial]["os_version"] = os_version
-        devices[serial]["status"] = "updating" if devices[serial]["lock"].locked() else "OK"
+        devices[serial]["status"] = "updating" if is_busy(serial) else "OK"
     else:
         devices[serial]["os_version"] = "---"
         devices[serial]["status"] = "offline"
@@ -175,7 +191,7 @@ def print_devices():
     latest_version = get_latest_version()
     for serial, device in devices.items():
         now = datetime.datetime.now()
-        if (now - device["last_seen"]).seconds < 60:
+        if (now - device["last_seen"]).seconds < 30:
             txt = f"{serial} | {device['os_version']} => {device['status']}"
             logger.info(txt)
 

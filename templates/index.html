@@ -26,7 +26,7 @@
             <tr>
                 <td>{{serial}}</td>
                 <td>{{device['os_version']}}</td>
-                <td>{{"Updating" if device["os_version"] != latest_version else "OK"}}</td>
+                <td>{{device['status']}}</td>
             </tr>
             {% endif %}
             {% endfor %}
